@@ -1,6 +1,7 @@
 name: 'Prepare .deb release'
 description: 'Prepare debian/changelog file for a new release'
 author: 'Andreea Lutac'
+
 inputs:
   package:
     description: 'Package name'
@@ -26,28 +27,15 @@ inputs:
   email:
     description: 'Email of release signer'
     required: true
-  use-sudo:
-    description: 'Use sudo for apt'
-    required: false
-    default: true
+
 runs:
   using: "composite"
   steps:
     - name: Install devscripts
-      shell: bash
-      run: |
-        if ${{ inputs.use-sudo }}; then
-          sudo apt update
-          sudo apt install --yes --no-install-recommends devscripts
-        else
-          apt update
-          apt install --yes --no-install-recommends devscripts
-        fi
-    - name: Set DEBFULLNAME and DEBEMAIL
-      shell: bash
-      run: |
-        echo "DEBFULLNAME=${{ inputs.user }}" >> $GITHUB_ENV;
-        echo "DEBEMAIL=${{ inputs.email }}" >> $GITHUB_ENV;
+      uses: awalsh128/cache-apt-pkgs-action@latest
+      with:
+        packages: devscripts
+
     - name: Check if version string contains 'v' and strip it out
       shell: bash
       run: |
@@ -55,12 +43,16 @@ runs:
         if [ "${RAW_VERSION#*v}" != "$RAW_VERSION" ]; then
           echo "VERSION=${RAW_VERSION#*v}" >> $GITHUB_ENV;
         fi
+
     - name: Create or update changelog
       shell: bash
       working-directory: ${{ inputs.project-dir }}
+      env:
+        DEBFULLNAME: ${{ inputs.user }} 
+        DEBEMAIL: ${{ inputs.email }}
       run: |
         if [ ! -f debian/changelog ]; then
-          dch --create --package ${{ inputs.package }} --distribution ${{ inputs.distribution }} --newversion ${{ env.VERSION }} "${{ inputs.changelog }}"
-        else
-          dch --package ${{ inputs.package }} --distribution ${{ inputs.distribution }} --newversion ${{ env.VERSION }} "${{ inputs.changelog }}"
+          CREATE="--create"
         fi
+        dch $CREATE --package ${{ inputs.package }} --distribution ${{ inputs.distribution }} --newversion ${{ env.VERSION }} "${{ inputs.changelog }}"
+ 
