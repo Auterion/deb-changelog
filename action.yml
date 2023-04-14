@@ -27,14 +27,21 @@ inputs:
   email:
     description: 'Email of release signer'
     required: true
+  use-sudo:
+    description: 'Use sudo to install devscripts'
+    required: false
+    default: true
 
 runs:
   using: "composite"
   steps:
     - name: Install devscripts
-      uses: awalsh128/cache-apt-pkgs-action@latest
-      with:
-        packages: devscripts
+      shell: bash
+      env:
+        SUDO: "${{ fromJSON('{ \"true\": \"sudo\", \"false\": \"\" }')[inputs.use-sudo] }}"
+      run: |
+        ${SUDO} apt-get update
+        ${SUDO} apt-get install -y devscripts
 
     - name: Check if version string contains 'v' and strip it out
       shell: bash
@@ -54,5 +61,4 @@ runs:
         if [ ! -f debian/changelog ]; then
           CREATE="--create"
         fi
-        dch $CREATE --package ${{ inputs.package }} --distribution ${{ inputs.distribution }} --newversion ${{ env.VERSION }} "${{ inputs.changelog }}"
- 
+        dch ${CREATE} --package ${{ inputs.package }} --distribution ${{ inputs.distribution }} --newversion ${{ env.VERSION }} "${{ inputs.changelog }}"
